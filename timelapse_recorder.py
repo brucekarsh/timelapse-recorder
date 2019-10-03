@@ -56,26 +56,9 @@ class TimelapseRecorder:
 
     im = Image.open('record-circle-fill.gif')
     self.startPhoto = ImageTk.PhotoImage(im)
-    startButton = ttk.Button(
-            self.buttonFrame,
-            text="Start",
-            command=self.start,
-            image=self.startPhoto,
-            compound=tkinter.LEFT)
-    startButton.photo = self.startPhoto
-    startButton.pack(side=tkinter.LEFT, anchor=tkinter.W, fill='x')
-
     im = Image.open('stop-fill.gif')
     self.stopPhoto = ImageTk.PhotoImage(im)
-    stopButton = ttk.Button(
-            self.buttonFrame,
-            text="Stop",
-            command=self.stop,
-            image=self.stopPhoto,
-            compound=tkinter.LEFT
-            )
-    stopButton.photo = self.stopPhoto
-    stopButton.pack(side=tkinter.LEFT)
+    self.startStopButton.photo = (self.stopPhoto, self.startPhoto)
 
     self.showConfigStringVar = tkinter.StringVar()
     self.showConfigButton = ttk.Checkbutton(
@@ -118,8 +101,9 @@ class TimelapseRecorder:
     self.root.mainloop()
 
   def callback(self):
-    if (self.running):
-      self.root.after(self.callbackInterval, self.callback)
+    if not self.running:
+      return  # just return if we get a leftover callback
+    self.root.after(self.callbackInterval, self.callback)
     ret, frame = self.cap.read()
     if ret == True:
       print ('x', end='', flush=True)
@@ -210,6 +194,9 @@ class TimelapseRecorder:
   
   def stop(self):
     self.makeStartStopButtonAStartButton()
+    if self.out:
+      self.out.release()
+      self.out = None
     self.running = False
     print ("stop")
 
