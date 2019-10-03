@@ -26,6 +26,7 @@ class TimelapseRecorder:
     return filename
 
   def __init__(self):
+    self.frameCount = 0
     self.config = configparser.ConfigParser()
     self.config.read('config.ini')
     if not 'config' in self.config:
@@ -37,7 +38,6 @@ class TimelapseRecorder:
     self.width = 640
     self.height = 480
     self.callbackInterval = 100
-    self.cnt = 0
     self.running = False
     self.root = tkinter.Tk(  )
     self.cap = cv2.VideoCapture(0)
@@ -88,9 +88,12 @@ class TimelapseRecorder:
     frame_pil = ImageTk.PhotoImage(Image.fromarray(np.zeros( (480, 640) ) ))
     self.imageLabel.configure(image=frame_pil)
 
+    self.statusLabel = ttk.Label(self.root)
+    self.statusLabel.pack()
+
     self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
     self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-    self.cap.set(cv2.CAP_PROP_FPS, 30.0)
+    self.cap.set(cv2.CAP_PROP_FPS, 5.0)
 
     signal.signal(signal.SIGINT, self.signal_handler)
     self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -100,17 +103,16 @@ class TimelapseRecorder:
     self.root.mainloop()
 
   def callback(self):
+    self.updateStatusMessage()
     if not self.running:
       return  # just return if we get a leftover callback
     self.root.after(self.callbackInterval, self.callback)
     ret, frame = self.cap.read()
     if ret == True:
       self.enqueue_for_display(self.now(), frame)
+      self.frameCount += 1
     else:
-      print ("fail")
-    self.cnt += 1
-    if 30 == self.cnt:
-      self.cnt = 0
+      self.fail()
 
   def enqueue_for_display(self, t, frame):
     global frame_pil
@@ -120,11 +122,27 @@ class TimelapseRecorder:
     self.imageLabel.configure(image=frame_pil)
     self.imageLabel.image = frame_pil
 
+  def fail(self):
+    self.stop()
+    messagebox.showerror("Write failed. Stopping")
+
   def filePrefixChange(self, *args):
     text = self.filePrefixEntry.get()
     if self.validateFilePrefixChange(text):
       self.config['config']['filePrefix'] = text
       self.writebackConfig()
+
+  def getStatusMessage(self):
+      string1 = "Running." if self.running else "Stopped."
+      return string1 + " " + str(self.frameCount) + " frames recorded"
+
+  def makeStartStopButtonAStartButton(self):
+      self.startStopButton.configure(
+          image=self.startPhoto, text='record', compound=tkinter.LEFT)
+
+  def makeStartStopButtonAStopButton(self):
+      self.startStopButton.configure(
+          image=self.stopPhoto, text='stop', compound=tkinter.LEFT)
       
   def now(self):
     return datetime.datetime.now()
@@ -143,10 +161,12 @@ class TimelapseRecorder:
       if self.showConfigStringVar.get() == 'on':
         self.buttonFrame.pack_forget()
         self.imageLabel.pack_forget
+        self.statusLabel.pack_forget
 
         self.buttonFrame.pack(fill='x')
         self.configFrame.pack(fill='x')
         self.imageLabel.pack(side=tkinter.BOTTOM)
+        self.imageLabel.pack()
       else:
         self.configFrame.pack_forget()
 
@@ -160,21 +180,21 @@ class TimelapseRecorder:
   def signal_handler(self, sig, frame):
     self.shutdown()
 
-  def makeStartStopButtonAStartButton(self):
-      self.startStopButton.configure(
-          image=self.startPhoto, text='record', compound=tkinter.LEFT)
-
-  def makeStartStopButtonAStopButton(self):
-      self.startStopButton.configure(
-          image=self.stopPhoto, text='stop', compound=tkinter.LEFT)
-
   def start(self):
+    self.frameCount = 0
     filename = self.makeFilename()
     self.makeStartStopButtonAStopButton()
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     self.out = cv2.VideoWriter(filename, fourcc, 30.0, (self.width, self.height))
-    self.running = True
-    self.root.after(self.callbackInterval, self.callback)
+    self.updateStatusMessage()
+
+
+    if self.out.isOpened():
+      self.running = True
+      self.root.after(self.callbackInterval, self.callback)
+    else:
+        messagebox.showerror("output file open failed", "could not open " + filename)
+        self.stop()
 
   def startStop(self):
     if self.running:
@@ -188,6 +208,12 @@ class TimelapseRecorder:
       self.out.release()
       self.out = None
     self.running = False
+    self.updateStatusMessage()
+
+  def updateStatusMessage(self):
+    statusMessage = self.getStatusMessage()
+    print (statusMessage)
+    self.statusLabel.configure(text=statusMessage)
 
   def validateFilePrefixChange(self, text):
       # TODO WRITEM
