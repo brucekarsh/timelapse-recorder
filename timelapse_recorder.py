@@ -1,0 +1,188 @@
+from PIL import Image, ImageTk
+import configparser
+import datetime
+import numpy as np
+import cv2
+import os
+import tkinter
+from tkinter import messagebox
+import time
+import threading
+import random
+import queue
+import signal
+import sys
+
+class TimelapseRecorder:
+  def makeFilename(self):
+    prefix = self.filePrefixEntry.get()
+    outputDirectory = self.outputDirectoryEntry.get()
+    date = self.now().strftime("%Y%m%d-%H%M%S")
+    filename = os.path.expanduser(os.path.join(outputDirectory, prefix + date + '.avi'))
+    # TODO: validate path.
+    # TODO: check for pre-existing file. Wait and retry if present.
+    # TODO: check for disk space
+    return filename
+
+  def __init__(self):
+    self.config = configparser.ConfigParser()
+    self.config.read('config.ini')
+    if not 'config' in self.config:
+        self.config['config'] = {}
+    prefix = self.config.get('config', 'filePrefix', fallback='TL_')
+    self.config['config']['filePrefix'] = prefix
+    outputDirectory = self.config.get('config', 'outputDirectory', fallback='~/Desktop')
+    self.config['config']['outputDirectory'] = outputDirectory
+    self.width = 640
+    self.height = 480
+    self.callbackInterval = 100
+    self.cnt = 0
+    self.running = False
+    self.root = tkinter.Tk(  )
+    self.cap = cv2.VideoCapture(0)
+
+    self.buttonFrame = tkinter.Frame(self.root)
+    self.buttonFrame.pack(fill='x')
+    self.configFrame = tkinter.Frame(self.root)
+    self.configFrame.pack(fill='x')
+    self.configFrame.pack_forget()
+
+    startButton = tkinter.Button(self.buttonFrame, text="Start", command=self.start)
+    startButton.pack(side=tkinter.LEFT, anchor=tkinter.W, fill='x')
+    stopButton = tkinter.Button(self.buttonFrame, text="Stop", command=self.stop)
+    stopButton.pack(side=tkinter.LEFT)
+
+    self.showConfigStringVar = tkinter.StringVar()
+    self.showConfigButton = tkinter.Checkbutton(
+            self.buttonFrame, text='configure', variable=self.showConfigStringVar,
+            command=self.showConfigButtonToggle, onvalue='on', offvalue='off')
+    self.showConfigButton.pack(side=tkinter.RIGHT)
+
+    filePrefixLabel = tkinter.Label(self.configFrame, text='filename prefix')
+    filePrefixLabel.pack(side=tkinter.LEFT)
+    self.filePrefixStringVar = tkinter.StringVar()
+    self.filePrefixStringVar.set(prefix)
+    self.filePrefixStringVar.trace('w', self.filePrefixChange)
+    self.filePrefixEntry = tkinter.Entry(self.configFrame, textvariable=self.filePrefixStringVar, width=4)
+    self.filePrefixEntry.pack(side=tkinter.LEFT)
+
+    outputDirectoryLabel = tkinter.Label(self.configFrame, text='output directory')
+    outputDirectoryLabel.pack(side=tkinter.LEFT)
+    self.outputDirectoryStringVar = tkinter.StringVar()
+    self.outputDirectoryStringVar.set(outputDirectory)
+    self.outputDirectoryStringVar.trace('w', self.outputDirectoryChange)
+    self.outputDirectoryEntry = tkinter.Entry(self.configFrame, textvariable=self.outputDirectoryStringVar)
+    self.outputDirectoryEntry.pack(side=tkinter.LEFT)
+
+    self.imagelabel = tkinter.Label(self.root)
+    self.imagelabel.pack()
+
+    frame_pil = ImageTk.PhotoImage(Image.fromarray(np.zeros( (480, 640) ) ))
+    self.imagelabel.configure(image=frame_pil)
+
+    self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+    self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+    self.cap.set(cv2.CAP_PROP_FPS, 30.0)
+
+    signal.signal(signal.SIGINT, self.signal_handler)
+    self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+    self.writebackConfig()
+    print (self.makeFilename())
+    self.out = None
+    self.root.mainloop()
+
+  def callback(self):
+    if (self.running):
+      self.root.after(self.callbackInterval, self.callback)
+    ret, frame = self.cap.read()
+    if ret == True:
+      print ('x', end='', flush=True)
+      self.enqueue_for_display(self.now(), frame)
+    else:
+      print ("fail")
+    self.cnt += 1
+    if 30 == self.cnt:
+      print (self.now())
+      self.cnt = 0
+
+  def enqueue_for_display(self, t, frame):
+    global frame_pil
+    self.out.write(frame)
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    frame_pil = ImageTk.PhotoImage(Image.fromarray(frame))
+    self.imagelabel.configure(image=frame_pil)
+    self.imagelabel.image = frame_pil
+
+  def filePrefixChange(self, *args):
+    text = self.filePrefixEntry.get()
+    if self.validateFilePrefixChange(text):
+      self.config['config']['filePrefix'] = text
+      self.writebackConfig()
+      
+  def now(self):
+    return datetime.datetime.now()
+
+  def on_closing(self):
+    if messagebox.askokcancel("Quit", "Do you want to quit?"):
+      self.shutdown()
+
+  def outputDirectoryChange(self, *args):
+    text = self.outputDirectoryEntry.get()
+    if self.validateoutputDirectoryChange(text):
+      self.config['config']['outputDirectory'] = text
+      self.writebackConfig()
+
+  def showConfigButtonToggle(self, *args):
+      print ('showCOnfigButtonToggle')
+      if self.showConfigStringVar.get() == 'on':
+        print ("pack")
+        self.buttonFrame.pack_forget()
+        self.imagelabel.pack_forget
+
+        self.buttonFrame.pack(fill='x')
+        self.configFrame.pack(fill='x')
+        self.imagelabel.pack(side=tkinter.BOTTOM)
+      else:
+        print ("pack_forget")
+        self.configFrame.pack_forget()
+
+  def shutdown(self):
+    self.cap.release()
+    self.out.release
+    cv2.destroyAllWindows()
+    print('exiting!')
+    sys.exit(0)
+
+  def signal_handler(self, sig, frame):
+    print('You pressed Ctrl+C!')
+    self.shutdown()
+
+  def start(self):
+    filename = self.makeFilename()
+    print ("start", filename)
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    self.out = cv2.VideoWriter(filename, fourcc, 30.0, (self.width, self.height))
+    self.running = True
+    self.root.after(self.callbackInterval, self.callback)
+  
+  def stop(self):
+      self.running = False
+      print ("stop")
+
+  def validateFilePrefixChange(self, text):
+      # TODO WRITEM
+      return True
+
+  def validateoutputDirectoryChange(self, text):
+      # TODO WRITEM
+      return True
+
+  def writebackConfig(self):
+    with open('config.ini', 'w') as configfile:
+      self.config.write(configfile)
+
+
+def main():
+    TimelapseRecorder()
+
+main()
