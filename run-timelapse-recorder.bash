@@ -1,5 +1,5 @@
 #!/bin/bash
-cd ~/VIDCAP
+cd ~/TIMELAPSE-RECORDER
 source venv3/bin/activate
 python timelapse_recorder.py
 
