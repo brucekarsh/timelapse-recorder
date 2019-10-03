@@ -95,7 +95,6 @@ class TimelapseRecorder:
     signal.signal(signal.SIGINT, self.signal_handler)
     self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
     self.writebackConfig()
-    print (self.makeFilename())
     self.out = None
     self.makeStartStopButtonAStartButton()
     self.root.mainloop()
@@ -106,13 +105,11 @@ class TimelapseRecorder:
     self.root.after(self.callbackInterval, self.callback)
     ret, frame = self.cap.read()
     if ret == True:
-      print ('x', end='', flush=True)
       self.enqueue_for_display(self.now(), frame)
     else:
       print ("fail")
     self.cnt += 1
     if 30 == self.cnt:
-      print (self.now())
       self.cnt = 0
 
   def enqueue_for_display(self, t, frame):
@@ -143,9 +140,7 @@ class TimelapseRecorder:
       self.writebackConfig()
 
   def showConfigButtonToggle(self, *args):
-      print ('showCOnfigButtonToggle')
       if self.showConfigStringVar.get() == 'on':
-        print ("pack")
         self.buttonFrame.pack_forget()
         self.imageLabel.pack_forget
 
@@ -153,7 +148,6 @@ class TimelapseRecorder:
         self.configFrame.pack(fill='x')
         self.imageLabel.pack(side=tkinter.BOTTOM)
       else:
-        print ("pack_forget")
         self.configFrame.pack_forget()
 
   def shutdown(self):
@@ -161,16 +155,14 @@ class TimelapseRecorder:
     if self.out:
       self.out.release()
     cv2.destroyAllWindows()
-    print('exiting!')
     sys.exit(0)
 
   def signal_handler(self, sig, frame):
-    print('You pressed Ctrl+C!')
     self.shutdown()
 
   def makeStartStopButtonAStartButton(self):
       self.startStopButton.configure(
-          image=self.startPhoto, text='start', compound=tkinter.LEFT)
+          image=self.startPhoto, text='record', compound=tkinter.LEFT)
 
   def makeStartStopButtonAStopButton(self):
       self.startStopButton.configure(
@@ -178,7 +170,6 @@ class TimelapseRecorder:
 
   def start(self):
     filename = self.makeFilename()
-    print ("start", filename)
     self.makeStartStopButtonAStopButton()
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     self.out = cv2.VideoWriter(filename, fourcc, 30.0, (self.width, self.height))
@@ -186,7 +177,6 @@ class TimelapseRecorder:
     self.root.after(self.callbackInterval, self.callback)
 
   def startStop(self):
-    print ("startstop")
     if self.running:
       self.stop()
     else:
@@ -198,7 +188,6 @@ class TimelapseRecorder:
       self.out.release()
       self.out = None
     self.running = False
-    print ("stop")
 
   def validateFilePrefixChange(self, text):
       # TODO WRITEM
