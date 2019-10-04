@@ -85,8 +85,8 @@ class TimelapseRecorder:
     self.imageLabel = ttk.Label(self.root)
     self.imageLabel.pack()
 
-    frame_pil = ImageTk.PhotoImage(Image.fromarray(np.zeros( (480, 640) ) ))
-    self.imageLabel.configure(image=frame_pil)
+    self.frame_pil = ImageTk.PhotoImage(Image.fromarray(np.zeros( (480, 640) ) ))
+    self.imageLabel.configure(image=self.frame_pil)
 
     self.statusLabel = ttk.Label(self.root)
     self.statusLabel.pack()
@@ -115,12 +115,12 @@ class TimelapseRecorder:
       self.fail()
 
   def enqueue_for_display(self, t, frame):
-    global frame_pil
     self.out.write(frame)
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    frame_pil = ImageTk.PhotoImage(Image.fromarray(frame))
-    self.imageLabel.configure(image=frame_pil)
-    self.imageLabel.image = frame_pil
+    self.frame_pil = ImageTk.PhotoImage(Image.fromarray(frame))
+    self.imageLabel.imagedata = self.frame_pil
+    self.imageLabel.configure(image=self.frame_pil)
+    self.root.update_idletasks()
 
   def fail(self):
     self.stop()
@@ -212,7 +212,6 @@ class TimelapseRecorder:
 
   def updateStatusMessage(self):
     statusMessage = self.getStatusMessage()
-    print (statusMessage)
     self.statusLabel.configure(text=statusMessage)
 
   def validateFilePrefixChange(self, text):
