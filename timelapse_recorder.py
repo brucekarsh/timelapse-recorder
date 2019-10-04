@@ -25,22 +25,40 @@ class TimelapseRecorder:
     # TODO: check for disk space
     return filename
 
+  def getConfigValue(self, section, key, fallback):
+    # look up the value
+    value = self.config.get(section, key, fallback=fallback)
+    # write it back in case it was a default value
+    self.setConfigValue(section, key, value)
+    return value
+
+  def setConfigValue(self, section, key, value):
+    self.config[section][key] = value;
+    self.writebackConfig()
+
+  def cameraPortChange(self, *args):
+    text = self.cameraPortEntry.get()
+    if self.validateCameraPortChange(text):
+      self.setConfigValue('config', 'cameraPort', text)
+
+
   def __init__(self):
     self.frameCount = 0
     self.config = configparser.ConfigParser()
     self.config.read('config.ini')
     if not 'config' in self.config:
         self.config['config'] = {}
-    prefix = self.config.get('config', 'filePrefix', fallback='TL_')
-    self.config['config']['filePrefix'] = prefix
-    outputDirectory = self.config.get('config', 'outputDirectory', fallback='~/Desktop')
-    self.config['config']['outputDirectory'] = outputDirectory
+
+    prefix = self.getConfigValue('config', 'filePrefix', fallback='TL_')
+    outputDirectory = self.getConfigValue('config', 'outputDirectory', fallback='~/Desktop')
+    cameraPort = self.getConfigValue('config', 'cameraPort', fallback='0')
+
     self.width = 640
     self.height = 480
     self.callbackInterval = 100
     self.running = False
     self.root = tkinter.Tk(  )
-    self.cap = cv2.VideoCapture(0)
+    self.cap = cv2.VideoCapture(int(cameraPort))
 
     self.buttonFrame = tkinter.Frame(self.root)
     self.buttonFrame.pack(fill='x')
@@ -82,6 +100,14 @@ class TimelapseRecorder:
     self.outputDirectoryEntry = ttk.Entry(self.configFrame, textvariable=self.outputDirectoryStringVar)
     self.outputDirectoryEntry.pack(side=tkinter.LEFT)
 
+    cameraPortLabel = ttk.Label(self.configFrame, text='camera port')
+    cameraPortLabel.pack(side=tkinter.LEFT)
+    self.cameraPortStringVar = tkinter.StringVar()
+    self.cameraPortStringVar.set(cameraPort)
+    self.cameraPortStringVar.trace('w', self.cameraPortChange)
+    self.cameraPortEntry = ttk.Entry(self.configFrame, textvariable=self.cameraPortStringVar)
+    self.cameraPortEntry.pack(side=tkinter.LEFT)
+
     self.imageLabel = ttk.Label(self.root)
     self.imageLabel.pack()
 
@@ -97,7 +123,6 @@ class TimelapseRecorder:
 
     signal.signal(signal.SIGINT, self.signal_handler)
     self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
-    self.writebackConfig()
     self.out = None
     self.makeStartStopButtonAStartButton()
     self.root.mainloop()
@@ -129,8 +154,7 @@ class TimelapseRecorder:
   def filePrefixChange(self, *args):
     text = self.filePrefixEntry.get()
     if self.validateFilePrefixChange(text):
-      self.config['config']['filePrefix'] = text
-      self.writebackConfig()
+      self.setConfigValue('config', 'filePrefix', text)
 
   def getStatusMessage(self):
       string1 = "Running." if self.running else "Stopped."
@@ -153,9 +177,8 @@ class TimelapseRecorder:
 
   def outputDirectoryChange(self, *args):
     text = self.outputDirectoryEntry.get()
-    if self.validateoutputDirectoryChange(text):
-      self.config['config']['outputDirectory'] = text
-      self.writebackConfig()
+    if self.validateOutputDirectoryChange(text):
+      self.setConfigValue('config', 'outputDirectory', text)
 
   def showConfigButtonToggle(self, *args):
       if self.showConfigStringVar.get() == 'on':
@@ -214,12 +237,16 @@ class TimelapseRecorder:
     statusMessage = self.getStatusMessage()
     self.statusLabel.configure(text=statusMessage)
 
-  def validateFilePrefixChange(self, text):
-      # TODO WRITEM
+  def validateCameraPortChange(self, text):
+      # TODO WRITEME
       return True
 
-  def validateoutputDirectoryChange(self, text):
-      # TODO WRITEM
+  def validateFilePrefixChange(self, text):
+      # TODO WRITEME
+      return True
+
+  def validateOutputDirectoryChange(self, text):
+      # TODO WRITEME
       return True
 
   def writebackConfig(self):
