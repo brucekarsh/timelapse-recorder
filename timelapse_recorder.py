@@ -58,7 +58,7 @@ class TimelapseRecorder:
     self.callbackInterval = 100
     self.running = False
     self.root = tkinter.Tk(  )
-    self.cap = cv2.VideoCapture(int(cameraPort))
+    self.cap = cv2.VideoCapture()
 
     self.buttonFrame = tkinter.Frame(self.root)
     self.buttonFrame.pack(fill='x')
@@ -204,6 +204,7 @@ class TimelapseRecorder:
     self.shutdown()
 
   def start(self):
+    self.cap.open(int(self.getConfigValue('config', 'cameraPort', '0')))
     self.frameCount = 0
     filename = self.makeFilename()
     self.makeStartStopButtonAStopButton()
