@@ -15,33 +15,6 @@ from tkinter import ttk
 import sys
 
 class TimelapseRecorder:
-  def makeFilename(self):
-    prefix = self.filePrefixEntry.get()
-    outputDirectory = self.outputDirectoryEntry.get()
-    date = self.now().strftime("%Y%m%d-%H%M%S")
-    filename = os.path.expanduser(os.path.join(outputDirectory, prefix + date + '.avi'))
-    # TODO: validate path.
-    # TODO: check for pre-existing file. Wait and retry if present.
-    # TODO: check for disk space
-    return filename
-
-  def getConfigValue(self, section, key, fallback):
-    # look up the value
-    value = self.config.get(section, key, fallback=fallback)
-    # write it back in case it was a default value
-    self.setConfigValue(section, key, value)
-    return value
-
-  def setConfigValue(self, section, key, value):
-    self.config[section][key] = value;
-    self.writebackConfig()
-
-  def cameraPortChange(self, *args):
-    text = self.cameraPortEntry.get()
-    if self.validateCameraPortChange(text):
-      self.setConfigValue('config', 'cameraPort', text)
-
-
   def __init__(self):
     self.frameCount = 0
     self.config = configparser.ConfigParser()
@@ -139,6 +112,11 @@ class TimelapseRecorder:
     else:
       self.fail()
 
+  def cameraPortChange(self, *args):
+    text = self.cameraPortEntry.get()
+    if self.validateCameraPortChange(text):
+      self.setConfigValue('config', 'cameraPort', text)
+
   def enqueue_for_display(self, t, frame):
     self.out.write(frame)
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -155,6 +133,23 @@ class TimelapseRecorder:
     text = self.filePrefixEntry.get()
     if self.validateFilePrefixChange(text):
       self.setConfigValue('config', 'filePrefix', text)
+
+  def getConfigValue(self, section, key, fallback):
+    # look up the value
+    value = self.config.get(section, key, fallback=fallback)
+    # write it back in case it was a default value
+    self.setConfigValue(section, key, value)
+    return value
+
+  def makeFilename(self):
+    prefix = self.filePrefixEntry.get()
+    outputDirectory = self.outputDirectoryEntry.get()
+    date = self.now().strftime("%Y%m%d-%H%M%S")
+    filename = os.path.expanduser(os.path.join(outputDirectory, prefix + date + '.avi'))
+    # TODO: validate path.
+    # TODO: check for pre-existing file. Wait and retry if present.
+    # TODO: check for disk space
+    return filename
 
   def getStatusMessage(self):
       string1 = "Running." if self.running else "Stopped."
@@ -179,6 +174,10 @@ class TimelapseRecorder:
     text = self.outputDirectoryEntry.get()
     if self.validateOutputDirectoryChange(text):
       self.setConfigValue('config', 'outputDirectory', text)
+
+  def setConfigValue(self, section, key, value):
+    self.config[section][key] = value;
+    self.writebackConfig()
 
   def showConfigButtonToggle(self, *args):
       if self.showConfigStringVar.get() == 'on':
