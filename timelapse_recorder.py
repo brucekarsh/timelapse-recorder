@@ -182,7 +182,7 @@ class TimelapseRecorder:
     prefix = self.filePrefixEntry.get()
     outputDirectory = self.outputDirectoryEntry.get()
     date = self.now().strftime("%Y%m%d-%H%M%S")
-    filename = os.path.expanduser(os.path.join(outputDirectory, prefix + date + '.avi'))
+    filename = os.path.expanduser(os.path.join(outputDirectory, prefix + date + '.mov'))
     # TODO: validate path.
     # TODO: check for pre-existing file. Wait and retry if present.
     # TODO: check for disk space
@@ -251,6 +251,7 @@ class TimelapseRecorder:
     filename = self.makeFilename()
     self.makeStartStopButtonAStopButton()
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
     self.out = cv2.VideoWriter(filename, fourcc, 30.0, (self.width, self.height))
     self.updateStatusMessage()
 
