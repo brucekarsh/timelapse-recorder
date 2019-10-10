@@ -9,10 +9,13 @@ from tkinter import messagebox
 import time
 import threading
 import random
+import re
 import queue
 import signal
+import subprocess
 from tkinter import ttk
 import sys
+
 
 class TimelapseRecorder:
   def __init__(self):
@@ -24,7 +27,6 @@ class TimelapseRecorder:
 
     prefix = self.getConfigValue('config', 'filePrefix', fallback='TL_')
     outputDirectory = self.getConfigValue('config', 'outputDirectory', fallback='~/Desktop')
-    cameraPort = self.getConfigValue('config', 'cameraPort', fallback='0')
 
     self.width = 640
     self.height = 480
@@ -62,7 +64,8 @@ class TimelapseRecorder:
     self.filePrefixStringVar = tkinter.StringVar()
     self.filePrefixStringVar.set(prefix)
     self.filePrefixStringVar.trace('w', self.filePrefixChange)
-    self.filePrefixEntry = ttk.Entry(self.configFrame, textvariable=self.filePrefixStringVar, width=4)
+    self.filePrefixEntry = ttk.Entry(
+            self.configFrame, textvariable=self.filePrefixStringVar, width=4)
     self.filePrefixEntry.pack(side=tkinter.LEFT)
 
     outputDirectoryLabel = ttk.Label(self.configFrame, text='output directory')
@@ -70,16 +73,34 @@ class TimelapseRecorder:
     self.outputDirectoryStringVar = tkinter.StringVar()
     self.outputDirectoryStringVar.set(outputDirectory)
     self.outputDirectoryStringVar.trace('w', self.outputDirectoryChange)
-    self.outputDirectoryEntry = ttk.Entry(self.configFrame, textvariable=self.outputDirectoryStringVar)
+    self.outputDirectoryEntry = ttk.Entry(
+            self.configFrame, textvariable=self.outputDirectoryStringVar)
     self.outputDirectoryEntry.pack(side=tkinter.LEFT)
 
     cameraPortLabel = ttk.Label(self.configFrame, text='camera port')
     cameraPortLabel.pack(side=tkinter.LEFT)
+
+    self.isLinux = True
     self.cameraPortStringVar = tkinter.StringVar()
-    self.cameraPortStringVar.set(cameraPort)
     self.cameraPortStringVar.trace('w', self.cameraPortChange)
-    self.cameraPortEntry = ttk.Entry(self.configFrame, textvariable=self.cameraPortStringVar)
-    self.cameraPortEntry.pack(side=tkinter.LEFT)
+    if (not self.isLinux):
+      self.cameraPortStringVar.set(str(self.getCameraPortNumber()))
+      self.cameraPortEntry = ttk.Entry(self.configFrame, textvariable=self.cameraPortStringVar)
+      self.cameraPortEntry.pack(side=tkinter.LEFT)
+    else:
+      v4lportNumbers, v4ldescriptions = self.enumerateVideoPorts()
+      choices = []
+      for i in range(len(v4lportNumbers)):
+          choices.append(str(v4lportNumbers[i]) + " " + v4ldescriptions[i])
+      print ('choices', choices)
+      print ('cameraPortString', self.getCameraPortString())
+      if (self.getCameraPortString() in choices):
+        self.cameraPortStringVar.set(self.getCameraPortString())
+      else:
+        self.cameraPortStringVar.set(choices[0])
+      self.cameraPortOptionMenu = tkinter.OptionMenu(
+              self.configFrame, self.cameraPortStringVar, *choices)
+      self.cameraPortOptionMenu.pack()
 
     self.imageLabel = ttk.Label(self.root)
     self.imageLabel.pack()
@@ -113,7 +134,9 @@ class TimelapseRecorder:
       self.fail()
 
   def cameraPortChange(self, *args):
-    text = self.cameraPortEntry.get()
+    print ('cameraPortChange')
+    text = self.cameraPortStringVar.get()
+    print ('cameraPortChange', text)
     if self.validateCameraPortChange(text):
       self.setConfigValue('config', 'cameraPort', text)
 
@@ -125,16 +148,28 @@ class TimelapseRecorder:
     self.imageLabel.configure(image=self.frame_pil)
     self.root.update_idletasks()
 
+  def enumerateVideoPorts(self):
+  #   This works for Linux but probably not for anything else.
+      v4lnames = subprocess.check_output("ls /sys/class/video4linux/", shell=True).decode(
+             "utf8").strip().split('\n')
+      v4ldescriptions = subprocess.check_output(
+              "cat /sys/class/video4linux/*/name", shell=True).decode("utf8").strip().split('\n')
+      v4lportNumbers = [int(x[5:]) for x in v4lnames]
+      return (v4lportNumbers, v4ldescriptions)
+    
   def fail(self):
     self.stop()
-    cameraPort = int(self.getConfigValue('config', 'cameraPort', '0'))
+    cameraPort = self.getConfigValue('config', 'cameraPort', '0')
     messagebox.showerror("Video read failed.", "Video read failed. Stopping." +
-            "\nCamera port is " + str(cameraPort))
+            "\nCamera port is " + cameraPort)
 
   def filePrefixChange(self, *args):
     text = self.filePrefixEntry.get()
     if self.validateFilePrefixChange(text):
       self.setConfigValue('config', 'filePrefix', text)
+
+  def getCameraPortString(self):
+    return self.getConfigValue('config', 'cameraPort', fallback='0')
 
   def getConfigValue(self, section, key, fallback):
     # look up the value
@@ -152,6 +187,12 @@ class TimelapseRecorder:
     # TODO: check for pre-existing file. Wait and retry if present.
     # TODO: check for disk space
     return filename
+
+  def getCameraPortNumber(self):
+    return int(self.getCameraPortString().split(" ")[0])
+
+  def getPortNumberFromChoice(self, choice):
+    return int(choice.split(" ")[0])
 
   def getStatusMessage(self):
       string1 = "Running." if self.running else "Stopped."
@@ -205,7 +246,7 @@ class TimelapseRecorder:
     self.shutdown()
 
   def start(self):
-    self.cap.open(int(self.getConfigValue('config', 'cameraPort', '0')))
+    self.cap.open(self.getCameraPortNumber())
     self.frameCount = 0
     filename = self.makeFilename()
     self.makeStartStopButtonAStopButton()
