@@ -127,7 +127,9 @@ class TimelapseRecorder:
 
   def fail(self):
     self.stop()
-    messagebox.showerror("Write failed. Stopping")
+    cameraPort = int(self.getConfigValue('config', 'cameraPort', '0'))
+    messagebox.showerror("Write failed.", "Write failed. Stopping." +
+            "\nCamera port is " + str(cameraPort))
 
   def filePrefixChange(self, *args):
     text = self.filePrefixEntry.get()
