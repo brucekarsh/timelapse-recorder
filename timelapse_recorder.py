@@ -116,6 +116,7 @@ class TimelapseRecorder:
     self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
     self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
     self.cap.set(cv2.CAP_PROP_FPS, 5.0)
+    self.setAutofocus(True)
 
     signal.signal(signal.SIGINT, self.signal_handler)
     self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -237,6 +238,16 @@ class TimelapseRecorder:
     text = self.outputDirectoryEntry.get()
     if self.validateOutputDirectoryChange(text):
       self.setConfigValue('config', 'outputDirectory', text)
+
+  def setAutofocus(self, b):
+    if b:
+      subprocess.check_output(
+          "v4l2-ctl -d /dev/video1 --set-ctrl=focus_auto=1", shell=True).decode(
+           "utf8").strip().split('\n')
+    else:
+      subprocess.check_output(
+          "v4l2-ctl -d /dev/video1 --set-ctrl=focus_auto=0", shell=True).decode(
+           "utf8").strip().split('\n')
 
   def setConfigValue(self, section, key, value):
     self.config[section][key] = value;
