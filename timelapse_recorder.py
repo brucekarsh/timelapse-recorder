@@ -20,6 +20,10 @@ import sys
 class TimelapseRecorder:
   def __init__(self):
     self.frameCount = 0
+    self.font = cv2.FONT_HERSHEY_SIMPLEX
+    self.fontScale = .5
+    self.fontColor = (255, 255, 255)
+    self.lineThickness = 1
     self.config = configparser.ConfigParser()
     self.config.read('config.ini')
     if not 'config' in self.config:
@@ -119,6 +123,23 @@ class TimelapseRecorder:
     self.makeStartStopButtonAStartButton()
     self.root.mainloop()
 
+  def annotateFrame(self, frame):
+      text = str(self.now())
+      textSize, textBaseline = cv2.getTextSize(text, self.font, self.fontScale, self.lineThickness)
+      textXSize = textSize[0]
+      textYSize = textSize[1]
+      frameXSize = frame.shape[1]
+      frameYSize = frame.shape[0]
+      pos = (2, frameYSize - 3)
+      cv2.putText(
+              frame,
+              text,
+              pos,
+              self.font,
+              self.fontScale,
+              self.fontColor,
+              self.lineThickness)
+
   def callback(self):
     self.updateStatusMessage()
     if not self.running:
@@ -126,6 +147,8 @@ class TimelapseRecorder:
     self.root.after(self.callbackInterval, self.callback)
     ret, frame = self.cap.read()
     if ret == True:
+      self.annotateFrame(frame)
+
       self.enqueue_for_display(self.now(), frame)
       self.frameCount += 1
     else:
