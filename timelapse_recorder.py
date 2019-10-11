@@ -36,8 +36,9 @@ class TimelapseRecorder:
     prefix = self.getConfigValue('config', 'filePrefix', fallback='TL_')
     outputDirectory = self.getConfigValue('config', 'outputDirectory', fallback='~/Desktop')
 
-    self.width = 640
-    self.height = 480
+    self.width = 1920
+    self.height = 1080
+    self.fps = 5.0
     self.callbackInterval = 100
     self.running = False
     self.root = tkinter.Tk(  )
@@ -110,16 +111,12 @@ class TimelapseRecorder:
     self.imageLabel = ttk.Label(self.root)
     self.imageLabel.pack()
 
-    self.frame_pil = ImageTk.PhotoImage(Image.fromarray(np.zeros( (480, 640) ) ))
+    self.frame_pil = ImageTk.PhotoImage(Image.fromarray(np.zeros( (self.height, self.width) ) ))
     self.imageLabel.configure(image=self.frame_pil)
 
     self.statusLabel = ttk.Label(self.root)
     self.statusLabel.pack()
 
-    self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-    self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-    self.cap.set(cv2.CAP_PROP_FPS, 5.0)
-    self.setAutofocus(True)
 
     signal.signal(signal.SIGINT, self.signal_handler)
     self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -284,11 +281,15 @@ class TimelapseRecorder:
 
   def start(self):
     self.cap.open(self.getCameraPortNumber())
+    self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, float(self.width))
+    self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, float(self.height))
+    self.cap.set(cv2.CAP_PROP_FPS, self.fps)
+    self.setAutofocus(True)
     self.frameCount = 0
     filename = self.makeFilename()
     self.makeStartStopButtonAStopButton()
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    self.out = cv2.VideoWriter(filename, fourcc, 30.0, (self.width, self.height))
+    self.out = cv2.VideoWriter(filename, fourcc, self.fps, (self.width, self.height))
     self.updateStatusMessage()
 
 
