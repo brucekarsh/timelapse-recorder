@@ -121,6 +121,7 @@ class TimelapseRecorder:
     self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
     self.out = None
     self.makeStartStopButtonAStartButton()
+    self.root.resizable(0, 0)
     self.root.mainloop()
 
   def annotateFrame(self, frame):
