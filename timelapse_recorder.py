@@ -92,8 +92,6 @@ class TimelapseRecorder:
       choices = []
       for i in range(len(v4lportNumbers)):
           choices.append(str(v4lportNumbers[i]) + " " + v4ldescriptions[i])
-      print ('choices', choices)
-      print ('cameraPortString', self.getCameraPortString())
       if (self.getCameraPortString() in choices):
         self.cameraPortStringVar.set(self.getCameraPortString())
       else:
@@ -134,9 +132,7 @@ class TimelapseRecorder:
       self.fail()
 
   def cameraPortChange(self, *args):
-    print ('cameraPortChange')
     text = self.cameraPortStringVar.get()
-    print ('cameraPortChange', text)
     if self.validateCameraPortChange(text):
       self.setConfigValue('config', 'cameraPort', text)
 
@@ -250,8 +246,7 @@ class TimelapseRecorder:
     self.frameCount = 0
     filename = self.makeFilename()
     self.makeStartStopButtonAStopButton()
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     self.out = cv2.VideoWriter(filename, fourcc, 30.0, (self.width, self.height))
     self.updateStatusMessage()
 
