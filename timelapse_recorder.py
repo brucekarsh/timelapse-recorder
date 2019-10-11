@@ -20,6 +20,10 @@ import sys
 class TimelapseRecorder:
   def __init__(self):
     self.frameCount = 0
+    if sys.platform == 'linux':
+        self.isLinux = True
+    else:
+        self.isLinux = False
     self.font = cv2.FONT_HERSHEY_SIMPLEX
     self.fontScale = .5
     self.fontColor = (255, 255, 255)
@@ -84,7 +88,6 @@ class TimelapseRecorder:
     cameraPortLabel = ttk.Label(self.configFrame, text='camera port')
     cameraPortLabel.pack(side=tkinter.LEFT)
 
-    self.isLinux = True
     self.cameraPortStringVar = tkinter.StringVar()
     self.cameraPortStringVar.trace('w', self.cameraPortChange)
     if (not self.isLinux):
@@ -192,12 +195,22 @@ class TimelapseRecorder:
   def getCameraPortString(self):
     return self.getConfigValue('config', 'cameraPort', fallback='0')
 
+  def getCameraPortNumber(self):
+    return int(self.getCameraPortString().split(" ")[0])
+
   def getConfigValue(self, section, key, fallback):
     # look up the value
     value = self.config.get(section, key, fallback=fallback)
     # write it back in case it was a default value
     self.setConfigValue(section, key, value)
     return value
+
+  def getPortNumberFromChoice(self, choice):
+    return int(choice.split(" ")[0])
+
+  def getStatusMessage(self):
+      string1 = "Running." if self.running else "Stopped."
+      return string1 + " " + str(self.frameCount) + " frames recorded"
 
   def makeFilename(self):
     prefix = self.filePrefixEntry.get()
@@ -208,16 +221,6 @@ class TimelapseRecorder:
     # TODO: check for pre-existing file. Wait and retry if present.
     # TODO: check for disk space
     return filename
-
-  def getCameraPortNumber(self):
-    return int(self.getCameraPortString().split(" ")[0])
-
-  def getPortNumberFromChoice(self, choice):
-    return int(choice.split(" ")[0])
-
-  def getStatusMessage(self):
-      string1 = "Running." if self.running else "Stopped."
-      return string1 + " " + str(self.frameCount) + " frames recorded"
 
   def makeStartStopButtonAStartButton(self):
       self.startStopButton.configure(
@@ -240,6 +243,9 @@ class TimelapseRecorder:
       self.setConfigValue('config', 'outputDirectory', text)
 
   def setAutofocus(self, b):
+    # This only works on linux
+    if not self.isLinux:
+      return
     if b:
       subprocess.check_output(
           "v4l2-ctl -d /dev/video1 --set-ctrl=focus_auto=1", shell=True).decode(
