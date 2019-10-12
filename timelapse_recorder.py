@@ -239,7 +239,10 @@ class TimelapseRecorder:
     return datetime.datetime.now()
 
   def on_closing(self):
-    if messagebox.askokcancel("Quit", "Do you want to quit?"):
+    if self.running:
+      if messagebox.askokcancel("Recording in progress", "Do you want to quit?"):
+        self.shutdown()
+    else:
       self.shutdown()
 
   def outputDirectoryChange(self, *args):
