@@ -1,20 +1,22 @@
 from PIL import Image, ImageTk
-import configparser
-import datetime
-import numpy as np
-import cv2
-import os
-import tkinter
 from tkinter import messagebox
-import time
-import threading
+from tkinter import ttk
+import configparser
+import cv2
+import datetime
+import fcntl
+import numpy as np
+import os
+import queue
 import random
 import re
-import queue
 import signal
 import subprocess
-from tkinter import ttk
 import sys
+import threading
+import time
+import tkinter
+import v4l2
 
 
 class TimelapseRecorder:
@@ -178,14 +180,31 @@ class TimelapseRecorder:
     self.root.update_idletasks()
 
   def enumerateVideoPorts(self):
-  #   This works for Linux but probably not for anything else.
-      v4lnames = subprocess.check_output("ls /sys/class/video4linux/", shell=True).decode(
-             "utf8").strip().split('\n')
-      v4ldescriptions = subprocess.check_output(
-              "cat /sys/class/video4linux/*/name", shell=True).decode("utf8").strip().split('\n')
-      v4lportNumbers = [int(x[5:]) for x in v4lnames]
-      return (v4lportNumbers, v4ldescriptions)
-    
+    # Find all /dev/video entries
+    devVideos = subprocess.check_output(
+        """ls /dev | egrep '^video[0-9]+$'""", shell=True).decode("utf8").strip().split('\n')
+    seenBusInfos = set()
+    v4ldescriptions = []
+    v4lportNumbers = []
+    for devVideo in devVideos:
+        vd = open('/dev/' + devVideo, 'rb+', buffering=0)
+        if vd:
+          cp = v4l2.v4l2_capability()
+          s = fcntl.ioctl(vd, v4l2.VIDIOC_QUERYCAP, cp)
+          if 0 == s:
+            busInfo = cp.bus_info
+            if busInfo not in seenBusInfos:
+              seenBusInfos.add(busInfo)
+              portNumber = int(devVideo[5:])
+              description = cp.card.decode("utf8")
+              v4ldescriptions.append(description)
+              v4lportNumbers.append(portNumber)
+          else:
+            print ("fcntl failed")
+        else:
+          print ("open failed")
+    return (v4lportNumbers, v4ldescriptions)
+
   def fail(self):
     self.stop()
     cameraPort = self.getConfigValue('config', 'cameraPort', '0')
@@ -250,18 +269,24 @@ class TimelapseRecorder:
     if self.validateOutputDirectoryChange(text):
       self.setConfigValue('config', 'outputDirectory', text)
 
-  def setAutofocus(self, b):
+  def setAutofocus(self, cameraPortNumber, b):
     # This only works on linux
     if not self.isLinux:
       return
     if b:
-      subprocess.check_output(
-          "v4l2-ctl -d /dev/video1 --set-ctrl=focus_auto=1", shell=True).decode(
-           "utf8").strip().split('\n')
+      try:
+        subprocess.check_output(
+            "v4l2-ctl -d /dev/video%s --set-ctrl=focus_auto=1" % cameraPortNumber, shell=True).decode(
+             "utf8").strip().split('\n')
+      except:
+        pass
     else:
-      subprocess.check_output(
-          "v4l2-ctl -d /dev/video1 --set-ctrl=focus_auto=0", shell=True).decode(
-           "utf8").strip().split('\n')
+      try:
+        subprocess.check_output(
+            "v4l2-ctl -d /dev/video%s --set-ctrl=focus_auto=0" % cameraPortNumber, shell=True).decode(
+             "utf8").strip().split('\n')
+      except:
+        pass
 
   def setConfigValue(self, section, key, value):
     self.config[section][key] = value;
@@ -291,11 +316,12 @@ class TimelapseRecorder:
     self.shutdown()
 
   def start(self):
-    self.cap.open(self.getCameraPortNumber())
+    cameraPortNumber = self.getCameraPortNumber()
+    self.cap.open(cameraPortNumber)
     self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, float(self.captureWidth))
     self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, float(self.captureHeight))
     self.cap.set(cv2.CAP_PROP_FPS, self.fps)
-    self.setAutofocus(True)
+    self.setAutofocus(cameraPortNumber, True)
     self.frameCount = 0
     filename = self.makeFilename()
     self.makeStartStopButtonAStopButton()
