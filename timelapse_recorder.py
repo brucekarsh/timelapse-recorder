@@ -215,6 +215,10 @@ class TimelapseRecorder:
     text = self.filePrefixEntry.get()
     if self.validateFilePrefixChange(text):
       self.setConfigValue('config', 'filePrefix', text)
+      self.filePrefixEntry.config(foreground="")
+    else:
+      self.filePrefixEntry.configure({"background": "red"})
+      self.filePrefixEntry.config(foreground="red")
 
   def getCameraPortString(self):
     return self.getConfigValue('config', 'cameraPort', fallback='0')
@@ -268,6 +272,9 @@ class TimelapseRecorder:
     text = self.outputDirectoryEntry.get()
     if self.validateOutputDirectoryChange(text):
       self.setConfigValue('config', 'outputDirectory', text)
+      self.outputDirectoryEntry.config(foreground="")
+    else:
+      self.outputDirectoryEntry.config(foreground="red")
 
   def setAutofocus(self, cameraPortNumber, b):
     # This only works on linux
@@ -356,16 +363,14 @@ class TimelapseRecorder:
     self.statusLabel.configure(text=statusMessage)
 
   def validateCameraPortChange(self, text):
-      # TODO WRITEME
-      return True
+      return re.match("^[0-9]+ ", text) is not None
 
   def validateFilePrefixChange(self, text):
-      # TODO WRITEME
-      return True
+      return re.match("^[-a-zA-Z0-9_+]+$", text) is not None
 
   def validateOutputDirectoryChange(self, text):
-      # TODO WRITEME
-      return True
+      filename = os.path.expanduser(text)
+      return os.path.isdir(filename)
 
   def writebackConfig(self):
     with open('config.ini', 'w') as configfile:
