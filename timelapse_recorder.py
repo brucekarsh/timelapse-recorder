@@ -43,7 +43,8 @@ class TimelapseRecorder:
     self.fps = 5.0
     self.callbackInterval = 100
     self.running = False
-    self.root = tkinter.Tk(  )
+    self.root = tkinter.Tk()
+    self.root.title("timelapse-recorder")
     self.cap = cv2.VideoCapture()
 
     self.buttonFrame = tkinter.Frame(self.root)
