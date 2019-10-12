@@ -24,10 +24,12 @@ class TimelapseRecorder:
         self.isLinux = True
     else:
         self.isLinux = False
+    self.imageDisplayWidth = 640
+    self.imageDisplayHeight = 480
     self.font = cv2.FONT_HERSHEY_SIMPLEX
-    self.fontScale = .5
+    self.fontScale = 1
     self.fontColor = (255, 255, 255)
-    self.lineThickness = 1
+    self.lineThickness = 2
     self.config = configparser.ConfigParser()
     self.config.read('config.ini')
     if not 'config' in self.config:
@@ -36,8 +38,8 @@ class TimelapseRecorder:
     prefix = self.getConfigValue('config', 'filePrefix', fallback='TL_')
     outputDirectory = self.getConfigValue('config', 'outputDirectory', fallback='~/Desktop')
 
-    self.width = 1920
-    self.height = 1080
+    self.captureWidth = 1920
+    self.captureHeight = 1080
     self.fps = 5.0
     self.callbackInterval = 100
     self.running = False
@@ -109,20 +111,21 @@ class TimelapseRecorder:
       self.cameraPortOptionMenu.pack()
 
     self.imageLabel = ttk.Label(self.root)
-    self.imageLabel.pack()
+    self.imageLabel.pack(fill='both', expand=1)
 
-    self.frame_pil = ImageTk.PhotoImage(Image.fromarray(np.zeros( (self.height, self.width) ) ))
+    self.frame_pil = ImageTk.PhotoImage(Image.fromarray(np.zeros(
+        (self.imageDisplayHeight, self.imageDisplayWidth) ) ))
     self.imageLabel.configure(image=self.frame_pil)
 
     self.statusLabel = ttk.Label(self.root)
-    self.statusLabel.pack()
+    self.statusLabel.pack(side=tkinter.BOTTOM, fill='x')
 
 
     signal.signal(signal.SIGINT, self.signal_handler)
     self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
     self.out = None
     self.makeStartStopButtonAStartButton()
-    self.root.resizable(0, 0)
+    #self.root.resizable(0, 0)
     self.root.mainloop()
 
   def annotateFrame(self, frame):
@@ -132,7 +135,7 @@ class TimelapseRecorder:
       textYSize = textSize[1]
       frameXSize = frame.shape[1]
       frameYSize = frame.shape[0]
-      pos = (2, frameYSize - 3)
+      pos = (4, frameYSize - 4)
       cv2.putText(
               frame,
               text,
@@ -164,7 +167,11 @@ class TimelapseRecorder:
   def enqueue_for_display(self, t, frame):
     self.out.write(frame)
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    self.frame_pil = ImageTk.PhotoImage(Image.fromarray(frame))
+    imageDisplayWidth = self.imageLabel.winfo_width() - 2
+    imageDisplayHeight = self.imageLabel.winfo_height() - 2
+
+    image = Image.fromarray(frame).resize( (imageDisplayWidth, imageDisplayHeight), Image.ANTIALIAS)
+    self.frame_pil = ImageTk.PhotoImage(image)
     self.imageLabel.imagedata = self.frame_pil
     self.imageLabel.configure(image=self.frame_pil)
     self.root.update_idletasks()
@@ -259,13 +266,13 @@ class TimelapseRecorder:
   def showConfigButtonToggle(self, *args):
       if self.showConfigStringVar.get() == 'on':
         self.buttonFrame.pack_forget()
-        self.imageLabel.pack_forget
-        self.statusLabel.pack_forget
+        self.imageLabel.pack_forget()
+        self.statusLabel.pack_forget()
 
         self.buttonFrame.pack(fill='x')
         self.configFrame.pack(fill='x')
-        self.imageLabel.pack(side=tkinter.BOTTOM)
-        self.imageLabel.pack()
+        self.statusLabel.pack(side=tkinter.BOTTOM, fill='x')
+        self.imageLabel.pack(fill='both', expand=1)
       else:
         self.configFrame.pack_forget()
 
@@ -281,15 +288,15 @@ class TimelapseRecorder:
 
   def start(self):
     self.cap.open(self.getCameraPortNumber())
-    self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, float(self.width))
-    self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, float(self.height))
+    self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, float(self.captureWidth))
+    self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, float(self.captureHeight))
     self.cap.set(cv2.CAP_PROP_FPS, self.fps)
     self.setAutofocus(True)
     self.frameCount = 0
     filename = self.makeFilename()
     self.makeStartStopButtonAStopButton()
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    self.out = cv2.VideoWriter(filename, fourcc, self.fps, (self.width, self.height))
+    self.out = cv2.VideoWriter(filename, fourcc, self.fps, (self.captureWidth, self.captureHeight))
     self.updateStatusMessage()
 
 
