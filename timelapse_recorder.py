@@ -245,9 +245,6 @@ class TimelapseRecorder:
     outputDirectory = self.outputDirectoryEntry.get()
     date = self.now().strftime("%Y%m%d-%H%M%S")
     filename = os.path.expanduser(os.path.join(outputDirectory, prefix + date + '.mov'))
-    # TODO: validate path.
-    # TODO: check for pre-existing file. Wait and retry if present.
-    # TODO: check for disk space
     return filename
 
   def makeStartStopButtonAStartButton(self):
